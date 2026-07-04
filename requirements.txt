@@ -1,0 +1,111 @@
+# -*- coding: utf-8 -*-
+"""
+Gerador de dados simulados para o projeto de Gestão de RH.
+Cria uma base de colaboradores (histórico de 24 meses) com informações de
+admissão, desligamento, cargo, departamento, salário, absenteísmo e avaliação
+de desempenho, salvando em dados/colaboradores.csv
+"""
+
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
+
+np.random.seed(7)
+
+N = 450  # número de colaboradores (histórico, incluindo desligados)
+
+departamentos = ["Comercial", "Operações", "TI", "Financeiro", "RH", "Marketing", "Atendimento"]
+cargos_por_depto = {
+    "Comercial": ["Vendedor", "Analista Comercial", "Coordenador Comercial", "Gerente Comercial"],
+    "Operações": ["Auxiliar Operacional", "Analista Operacional", "Supervisor Operacional", "Gerente de Operações"],
+    "TI": ["Analista de Sistemas", "Desenvolvedor", "Analista de Suporte", "Coordenador de TI"],
+    "Financeiro": ["Analista Financeiro", "Auxiliar Financeiro", "Controller", "Gerente Financeiro"],
+    "RH": ["Analista de RH", "Auxiliar de RH", "Coordenador de RH", "Gerente de RH"],
+    "Marketing": ["Analista de Marketing", "Designer", "Coordenador de Marketing"],
+    "Atendimento": ["Atendente", "Supervisor de Atendimento", "Coordenador de Atendimento"],
+}
+
+faixa_salarial = {
+    "Vendedor": (1800, 3200), "Analista Comercial": (2500, 4200), "Coordenador Comercial": (4500, 7000), "Gerente Comercial": (8000, 13000),
+    "Auxiliar Operacional": (1500, 2200), "Analista Operacional": (2400, 3800), "Supervisor Operacional": (4000, 6000), "Gerente de Operações": (7500, 12000),
+    "Analista de Sistemas": (3500, 6000), "Desenvolvedor": (4000, 8500), "Analista de Suporte": (2200, 3800), "Coordenador de TI": (6500, 10000),
+    "Analista Financeiro": (2800, 4800), "Auxiliar Financeiro": (1700, 2600), "Controller": (7000, 11000), "Gerente Financeiro": (9000, 14000),
+    "Analista de RH": (2600, 4300), "Auxiliar de RH": (1600, 2400), "Coordenador de RH": (4800, 7200), "Gerente de RH": (8500, 12500),
+    "Analista de Marketing": (2500, 4200), "Designer": (2400, 4500), "Coordenador de Marketing": (5000, 7500),
+    "Atendente": (1500, 2100), "Supervisor de Atendimento": (2800, 4000), "Coordenador de Atendimento": (4200, 6200),
+}
+
+genero_opcoes = ["Feminino", "Masculino"]
+escolaridade_opcoes = ["Ensino Médio", "Graduação", "Pós-graduação"]
+escolaridade_pesos = [0.30, 0.50, 0.20]
+motivos_desligamento = [
+    "Pedido de demissão", "Desligamento sem justa causa", "Fim de contrato",
+    "Aposentadoria", "Desligamento por justa causa"
+]
+motivos_pesos = [0.42, 0.38, 0.10, 0.05, 0.05]
+
+data_referencia = datetime(2026, 6, 30)
+inicio_janela = datetime(2023, 1, 1)
+
+registros = []
+for i in range(N):
+    depto = np.random.choice(departamentos)
+    cargo = np.random.choice(cargos_por_depto[depto])
+    salario_min, salario_max = faixa_salarial[cargo]
+    salario = round(np.random.uniform(salario_min, salario_max), 2)
+
+    dias_totais = (data_referencia - inicio_janela).days
+    data_admissao = inicio_janela + timedelta(days=int(np.random.randint(0, dias_totais)))
+    tempo_max_casa_dias = (data_referencia - data_admissao).days
+
+    # 78% seguem ativos, 22% desligados
+    ativo = np.random.random() < 0.78
+    data_desligamento = None
+    motivo_desligamento = None
+    if not ativo and tempo_max_casa_dias > 30:
+        dias_ate_desligamento = np.random.randint(30, tempo_max_casa_dias)
+        data_desligamento = data_admissao + timedelta(days=int(dias_ate_desligamento))
+        motivo_desligamento = np.random.choice(motivos_desligamento, p=motivos_pesos)
+    else:
+        ativo = True
+
+    if ativo:
+        tempo_casa_dias = (data_referencia - data_admissao).days
+    else:
+        tempo_casa_dias = (data_desligamento - data_admissao).days
+
+    idade = int(np.clip(np.random.normal(34, 8), 19, 63))
+    genero = np.random.choice(genero_opcoes)
+    escolaridade = np.random.choice(escolaridade_opcoes, p=escolaridade_pesos)
+
+    faltas_ultimos_12m = np.random.poisson(2.2)
+    horas_extras_mes_media = round(max(0, np.random.normal(6, 5)), 1)
+
+    nota_desempenho = round(np.clip(np.random.normal(7.6, 1.3), 1, 10), 1)
+    enps = int(np.clip(np.random.normal(8, 2), 0, 10))  # employee NPS individual (proxy)
+
+    registros.append({
+        "id_colaborador": f"C{i+1:04d}",
+        "departamento": depto,
+        "cargo": cargo,
+        "genero": genero,
+        "idade": idade,
+        "escolaridade": escolaridade,
+        "salario": salario,
+        "data_admissao": data_admissao.strftime("%Y-%m-%d"),
+        "ativo": ativo,
+        "data_desligamento": data_desligamento.strftime("%Y-%m-%d") if data_desligamento else "",
+        "motivo_desligamento": motivo_desligamento if motivo_desligamento else "",
+        "tempo_casa_dias": tempo_casa_dias,
+        "faltas_ultimos_12m": faltas_ultimos_12m,
+        "horas_extras_mes_media": horas_extras_mes_media,
+        "nota_desempenho": nota_desempenho,
+        "enps_individual": enps,
+    })
+
+df = pd.DataFrame(registros)
+df.sort_values("data_admissao", inplace=True)
+df.to_csv("dados/colaboradores.csv", index=False, encoding="utf-8-sig")
+
+print(f"Base gerada com sucesso: {len(df)} colaboradores -> dados/colaboradores.csv")
+print(df.head())
